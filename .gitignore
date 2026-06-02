@@ -1,8 +1,0 @@
-# Ignorar arquivos CSV brutos
-*.csv
-
-# Ignorar arquivos Parquet brutos
-*.parquet
-
-# Ignorar diretório específico (exemplo: "silver")
-silver/

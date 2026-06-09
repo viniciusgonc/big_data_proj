@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mobilidade Rio — Onde está meu ônibus?</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --azul:      #1A6FBF;
+      --verde:     #2ECC71;
+      --laranja:   #F28C28;
+      --vermelho:  #E74C3C;
+      --amarelo:   #F1C40F;
+      --fundo:     #0D1117;
+      --painel:    #161B22;
+      --borda:     #30363D;
+      --texto:     #E6EDF3;
+      --texto-dim: #8B949E;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--fundo);
+      color: var(--texto);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--painel);
+      border-bottom: 1px solid var(--borda);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      z-index: 1000;
+    }
+
+    .logo {
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--azul);
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+    .logo span { color: var(--verde); }
+
+    /* ── Grupos de controle ── */
+    .ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--borda);
+      border-radius: 8px;
+    }
+
+    .ctrl-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 9px;
+      color: var(--texto-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+      margin-right: 2px;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select {
+      background: var(--fundo);
+      border: 1px solid var(--borda);
+      color: var(--texto);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus { border-color: var(--azul); }
+    input#input-linha { width: 90px; text-transform: uppercase; }
+    input#input-raio  { width: 70px; }
+    select            { max-width: 150px; cursor: pointer; }
+
+    button {
+      padding: 7px 13px;
+      border: none;
+      border-radius: 6px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+    button:hover  { opacity: 0.85; }
+    button:active { transform: scale(0.97); }
+
+    .btn-linha   { background: var(--azul);    color: #fff; }
+    .btn-rota    { background: var(--laranja);  color: #fff; }
+    .btn-proximos{ background: var(--verde);   color: #0D1117; }
+    .btn-calor   { background: var(--vermelho);color: #fff; }
+
+    #info-bar {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--verde);
+      margin-left: auto;
+      white-space: nowrap;
+      padding-left: 8px;
+    }
+
+    /* ── Stats bar ── */
+    .stats {
+      display: flex;
+      gap: 0;
+      background: var(--painel);
+      border-bottom: 1px solid var(--borda);
+    }
+
+    .stat {
+      flex: 1;
+      padding: 7px 16px;
+      border-right: 1px solid var(--borda);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .stat:last-child { border-right: none; }
+
+    .stat-label {
+      font-size: 10px;
+      color: var(--texto-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-family: 'Space Mono', monospace;
+    }
+
+    .stat-value {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--texto);
+      font-family: 'Space Mono', monospace;
+    }
+
+    /* ── Indicador de streaming ── */
+    .stream-dot {
+      display: inline-block;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--verde);
+      margin-right: 5px;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    /* ── Mapa ── */
+    #map { flex: 1; width: 100%; }
+
+    /* ── Legenda ── */
+    .legenda {
+      position: absolute;
+      bottom: 32px;
+      left: 16px;
+      background: var(--painel);
+      border: 1px solid var(--borda);
+      border-radius: 8px;
+      padding: 10px 14px;
+      z-index: 999;
+      font-size: 12px;
+    }
+
+    .legenda-titulo {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      color: var(--texto-dim);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .legenda-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px;
+      color: var(--texto);
+    }
+
+    .legenda-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .legenda-rota {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px;
+      color: var(--texto);
+    }
+
+    .legenda-linha {
+      width: 18px; height: 3px;
+      flex-shrink: 0;
+    }
+
+    /* ── Loader ── */
+    #loader {
+      position: absolute;
+      inset: 0;
+      background: rgba(13,17,23,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .loader-ring {
+      width: 40px; height: 40px;
+      border: 3px solid var(--borda);
+      border-top-color: var(--azul);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .loader-txt {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--texto-dim);
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Leaflet overrides ── */
+    .leaflet-popup-content-wrapper {
+      background: var(--painel);
+      color: var(--texto);
+      border: 1px solid var(--borda);
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    }
+    .leaflet-popup-tip { background: var(--painel); }
+    .leaflet-control-zoom a {
+      background: var(--painel) !important;
+      color: var(--texto) !important;
+      border-color: var(--borda) !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Header ── -->
+  <header>
+    <div class="logo">RIO<span>BUS</span></div>
+
+    <!-- Grupo 1: Buscar linha em tempo real -->
+    <div class="ctrl-group">
+      <span class="ctrl-label">Tempo real</span>
+      <input type="text" id="input-linha" placeholder="ex: 485" maxlength="6" />
+      <select id="select-linha" onchange="selecionarLinhaDropdown(this.value)">
+        <option value="">▼ Linha</option>
+        <option value="TODAS">Todas as linhas</option>
+      </select>
+      <button class="btn-linha" onclick="buscarLinha()">🚌 Buscar</button>
+    </div>
+
+    <!-- Grupo 2: Identificar rota histórica -->
+    <div class="ctrl-group">
+      <span class="ctrl-label">Rota histórica</span>
+      <select id="select-rota">
+        <option value="">▼ Selecionar linha</option>
+      </select>
+      <button class="btn-rota" onclick="identificarRota()">🗺️ Ver rota</button>
+    </div>
+
+    <!-- Grupo 3: Próximos -->
+    <div class="ctrl-group">
+      <span class="ctrl-label">Proximidade</span>
+      <input type="number" id="input-raio" value="500" min="100" max="5000" step="100" />
+      <span style="font-size:11px;color:var(--texto-dim)">m</span>
+      <button class="btn-proximos" onclick="buscarProximos()">📍 Próximos</button>
+    </div>
+
+    <!-- Grupo 4: Calor -->
+    <div class="ctrl-group">
+      <button class="btn-calor" onclick="mostrarMapaCalor()">Mapa de calor</button>
+    </div>
+
+    <div id="info-bar"></div>
+  </header>
+
+  <!-- ── Stats ── -->
+  <div class="stats">
+    <div class="stat">
+      <span class="stat-label">Ônibus ativos</span>
+      <span class="stat-value" id="stat-onibus">—</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Linhas ativas</span>
+      <span class="stat-value" id="stat-linhas">—</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Vel. média</span>
+      <span class="stat-value" id="stat-vel">—</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">% parados</span>
+      <span class="stat-value" id="stat-parados">—</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label"><span class="stream-dot"></span>Ao vivo</span>
+      <span class="stat-value" id="stat-hora" style="font-size:12px">—</span>
+    </div>
+  </div>
+
+  <!-- ── Mapa ── -->
+  <div style="position:relative; flex:1; display:flex; flex-direction:column;">
+    <div id="map"></div>
+
+    <!-- Legenda -->
+    <div class="legenda">
+      <div class="legenda-titulo">Status</div>
+      <div class="legenda-item">
+        <div class="legenda-dot" style="background:#2ECC71"></div>Fluído
+      </div>
+      <div class="legenda-item">
+        <div class="legenda-dot" style="background:#F1C40F"></div>Lentidão
+      </div>
+      <div class="legenda-item">
+        <div class="legenda-dot" style="background:#E74C3C"></div>Parado
+      </div>
+
+      <div class="legenda-titulo" style="margin-top:10px;">Rota histórica</div>
+      <div class="legenda-rota">
+        <div class="legenda-linha" style="background:#F28C28"></div>Trajeto
+      </div>
+      <div class="legenda-rota">
+        <div class="legenda-dot" style="background:#2ECC71;width:8px;height:8px"></div>Início
+      </div>
+      <div class="legenda-rota">
+        <div class="legenda-dot" style="background:#E74C3C;width:8px;height:8px"></div>Fim
+      </div>
+
+      <div style="margin-top:10px;font-size:10px;color:var(--texto-dim);
+                  font-family:'Space Mono',monospace;max-width:140px;line-height:1.5;">
+        Clique no mapa para simular sua localização
+      </div>
+    </div>
+
+    <!-- Loader -->
+    <div id="loader">
+      <div class="loader-ring"></div>
+      <div class="loader-txt">Carregando dados...</div>
+    </div>
+  </div>
+
+  <script src="/static/map.js"></script>
+
+  <!-- Popula o select de rota com as mesmas linhas do select de tempo real -->
+  <script>
+    // Espera o map.js popular o select-linha e replica para select-rota
+    const _observer = new MutationObserver(() => {
+      const src  = document.getElementById("select-linha");
+      const dest = document.getElementById("select-rota");
+      if (src.options.length > 1 && dest.options.length === 1) {
+        Array.from(src.options).slice(1).forEach(opt => {
+          const o = document.createElement("option");
+          o.value = opt.value;
+          o.textContent = opt.textContent;
+          dest.appendChild(o);
+        });
+        _observer.disconnect();
+      }
+    });
+    _observer.observe(document.getElementById("select-linha"), { childList: true });
+  </script>
+</body>
+</html>

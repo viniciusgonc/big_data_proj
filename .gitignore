@@ -1,0 +1,27 @@
+# Ambientes Virtuais
+venv/
+env/
+.env
+
+# Arquivos de Cache do Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Arquivos de Dados (Muito importante para não estourar o limite do GitHub)
+dados/bronze/*
+dados/silver/*
+dados/gold/*
+!dados/**/.gitkeep
+*.csv
+*.parquet
+*.json
+
+# Logs e metadados de IDE (VS Code)
+.vscode/
+*.log
+
+# OS gerados
+.DS_Store
+Thumbs.db

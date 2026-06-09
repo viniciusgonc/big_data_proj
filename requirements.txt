@@ -1,9 +1,24 @@
-pandas
-requests
-pytz
-folium
-fastparquet
-numpy
-matplotlib
-seaborn
-pyarrow
+# Core Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+pyarrow>=14.0.0
+
+# API & Web Requests
+requests>=2.31.0
+pytz>=2023.3
+
+# Data Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+folium>=0.14.0
+
+# Jupyter & Notebooks
+ipykernel>=6.26.0
+ipython>=8.0.0
+
+# Parquet Support
+fastparquet>=2023.10.0
+
+fastapi
+uvicorn
+cachetools
